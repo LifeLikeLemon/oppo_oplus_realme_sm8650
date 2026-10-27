@@ -98,7 +98,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       ksuver: ${{ steps.ksu_version.outputs.ksuver }}
       ak3name: ${{ steps.create_zip.outputs.ak3name }}
@@ -154,6 +154,29 @@ jobs:
             sed -i 's/ -dirty//g' "$f"
             sed -i '$i res=$(echo "$res" | sed '\''s/-dirty//g'\'')' "$f"
           done
+
+      - name: 构建环境自检（诊断用，全部兜底不阻断构建）
+        run: |
+          echo "=== OS ==="
+          grep -E "^(NAME|VERSION)=" /etc/os-release || true
+          uname -r || true
+          echo "=== 关键工具 ==="
+          for t in aria2c pahole bc bison flex ccache clang ld.lld zip unzip python3 git; do
+            if command -v "$t" >/dev/null 2>&1; then
+              printf '%-10s OK\n' "$t"
+            else
+              printf '%-10s MISSING\n' "$t"
+            fi
+          done
+          echo "=== 关键头文件 ==="
+          for f in /usr/include/openssl/ssl.h /usr/include/libelf.h /usr/include/gelf.h; do
+            if [ -f "$f" ]; then echo "$f OK"; else echo "$f MISSING"; fi
+          done
+          echo "=== 版本 ==="
+          { pahole --version || echo "pahole 不可用"; } 2>&1 | head -n1
+          { ccache --version || echo "ccache 不可用"; } 2>&1 | head -n1
+          echo "=== 源码目录 ==="
+          ls -d kernel_workspace/common kernel_workspace/clang20 kernel_workspace/build-tools 2>&1 || true
 
       - name: 配置ccache目录
         run: |
@@ -737,7 +760,7 @@ jobs:
 
   release:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
       packages: write

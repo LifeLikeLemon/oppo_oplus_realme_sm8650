@@ -90,6 +90,11 @@ on:
         required: true
         type: boolean
         default: 'false'
+      build_user:
+        description: '编译者署名（留空使用 runner 默认值）'
+        required: false
+        type: string
+        default: ''
       kernel_suffix:
         description: '内核后缀(留空默认,开头别加连字符,勿加空格等影响指令运行的保留字符)'
         required: false
@@ -590,7 +595,15 @@ jobs:
           git apply "${RUNNER_TEMP}/fix-sched-ext-task-leak.patch"
 
       - name: 构建内核
+        env:
+          KBUILD_BUILD_USER: ${{ inputs.build_user }}
+          BBR_MODE: ${{ inputs.bbr_enable }}
+          BETTER_NET: ${{ inputs.better_net }}
         run: |
+          if [[ -n "$KBUILD_BUILD_USER" && ! "$KBUILD_BUILD_USER" =~ ^[[:alnum:]_.\ -]+$ ]]; then
+            echo "Invalid compiler name"
+            exit 1
+          fi
           WORKDIR="$(pwd)"
           export PATH="/usr/lib/ccache:$PATH"
           export PATH="$WORKDIR/kernel_workspace/clang20/bin:$PATH"
@@ -663,6 +676,18 @@ jobs:
           make -j$(nproc --all) LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC="ccache clang" LD="ld.lld" HOSTLD=ld.lld O=out KCFLAGS+=-O2 KCFLAGS+=-Wno-error gki_defconfig &&
           make -j$(nproc --all) LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC="$(pwd)/cc-wrapper" LD="$(pwd)/ld-wrapper" HOSTLD=ld.lld O=out KCFLAGS+=-O2 KCFLAGS+=-Wno-error Image
           
+          if [[ "$BBR_MODE" == "true" ]]; then
+            grep -Fx 'CONFIG_TCP_CONG_BBR=y' out/.config
+            grep -Fx 'CONFIG_DEFAULT_TCP_CONG="cubic"' out/.config
+          fi
+          if [[ "$BETTER_NET" == "true" ]]; then
+            grep -Fx 'CONFIG_IP_SET=y' out/.config
+            grep -Fx 'CONFIG_IP6_NF_NAT=y' out/.config
+          fi
+          if [[ -n "$KBUILD_BUILD_USER" ]]; then
+            grep 'LINUX_COMPILE_BY' out/include/generated/compile.h | grep -F -- "\"$KBUILD_BUILD_USER\""
+          fi
+
           # 编译后时间劫持二次校验
           echo "--- 编译后环境时间: $(LD_PRELOAD=$PRELOAD_LIBS date) ---"
           echo "--- 编译后环境文件时间戳: ---"

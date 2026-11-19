@@ -581,6 +581,14 @@ jobs:
             done
           fi
            
+      - name: Apply sched_ext task lifetime fix
+        run: |
+          curl --fail --silent --show-error --location --retry 3 \
+            "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${GITHUB_SHA}/other_patch/fix-sched-ext-task-leak-6.1.141.patch" \
+            --output "${RUNNER_TEMP}/fix-sched-ext-task-leak.patch"
+          cd kernel_workspace/common
+          git apply "${RUNNER_TEMP}/fix-sched-ext-task-leak.patch"
+
       - name: 构建内核
         run: |
           WORKDIR="$(pwd)"

@@ -377,6 +377,7 @@ sed -i 's/check_defconfig//' ./common/build.config.gki
 # ===== 编译内核 =====
 echo ">>> 开始编译内核..."
 cd common
+git apply "$SCRIPT_DIR/../other_patch/fix-sched-ext-task-leak-6.1.141.patch" || exit 1
 make -j$(nproc --all) LLVM=-20 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnuabeihf- CC=clang LD=ld.lld HOSTCC=clang HOSTLD=ld.lld O=out KCFLAGS+=-O2 KCFLAGS+=-Wno-error gki_defconfig all
 echo ">>> 内核编译成功！"
 

@@ -1,0 +1,26 @@
+diff --git a/kernel/fork.c b/kernel/fork.c
+index b9f407e..80eeb60 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -635,6 +635,9 @@ void free_task(struct task_struct *tsk)
+ 	if (tsk->flags & PF_KTHREAD)
+ 		free_kthread_struct(tsk);
+ 	bpf_task_storage_free(tsk);
++#ifdef CONFIG_SCHED_CLASS_EXT
++	kfree(tsk->scx);
++#endif
+ 	free_task_struct(tsk);
+ }
+ EXPORT_SYMBOL(free_task);
+@@ -1105,6 +1108,11 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
+ 	if (err)
+ 		goto free_tsk;
+ 
++#ifdef CONFIG_SCHED_CLASS_EXT
++	/* The copied pointer belongs to the parent until scx_pre_fork(). */
++	tsk->scx = NULL;
++#endif
++
+ 	err = alloc_thread_stack_node(tsk, node);
+ 	if (err)
+ 		goto free_tsk;
